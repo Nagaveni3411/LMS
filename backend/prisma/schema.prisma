@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+}
+
+enum ProgressStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+model User {
+  id           String       @id @default(cuid())
+  name         String
+  email        String       @unique
+  passwordHash String
+  role         UserRole     @default(STUDENT)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  courses      Course[]     @relation("InstructorCourses")
+  enrollments  Enrollment[]
+  progress     Progress[]
+}
+
+model Course {
+  id               String       @id @default(cuid())
+  title            String
+  thumbnailUrl     String
+  shortDescription String
+  description      String
+  learningOutcomes Json
+  instructorId     String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  instructor       User         @relation("InstructorCourses", fields: [instructorId], references: [id], onDelete: Restrict)
+  sections         Section[]
+  enrollments      Enrollment[]
+  progress         Progress[]
+}
+
+model Section {
+  id        String   @id @default(cuid())
+  courseId  String
+  title     String
+  orderNo   Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons   Lesson[]
+
+  @@unique([courseId, orderNo])
+}
+
+model Lesson {
+  id             String    @id @default(cuid())
+  sectionId      String
+  title          String
+  orderNo        Int
+  youtubeUrl     String
+  youtubeVideoId String
+  durationSec    Int
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  section        Section   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  progress       Progress[]
+
+  @@unique([sectionId, orderNo])
+}
+
+model Enrollment {
+  id         String   @id @default(cuid())
+  userId     String
+  courseId   String
+  enrolledAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+}
+
+model Progress {
+  id            String         @id @default(cuid())
+  userId        String
+  courseId      String
+  lessonId      String
+  status        ProgressStatus @default(IN_PROGRESS)
+  updatedAt     DateTime       @updatedAt
+  completedAt   DateTime?
+  lastWatchedAt DateTime       @default(now())
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course        Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lesson        Lesson         @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+}

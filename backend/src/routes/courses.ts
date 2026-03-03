@@ -28,6 +28,12 @@ const createLessonSchema = z.object({
 
 export const coursesRouter = Router();
 
+function firstParam(param: string | string[] | undefined): string | null {
+  if (typeof param === "string" && param.length > 0) return param;
+  if (Array.isArray(param) && param[0]) return param[0];
+  return null;
+}
+
 coursesRouter.get(
   "/",
   asyncHandler(async (_req, res) => {
@@ -61,8 +67,14 @@ coursesRouter.get(
 coursesRouter.get(
   "/:courseId",
   asyncHandler(async (req, res) => {
+    const courseId = firstParam(req.params.courseId);
+    if (!courseId) {
+      res.status(400).json({ message: "Invalid courseId" });
+      return;
+    }
+
     const course = await prisma.course.findUnique({
-      where: { id: req.params.courseId },
+      where: { id: courseId },
       include: {
         instructor: { select: { id: true, name: true } },
         sections: {
@@ -127,7 +139,12 @@ coursesRouter.post(
   requireRole([UserRole.INSTRUCTOR, UserRole.ADMIN]),
   asyncHandler(async (req, res) => {
     const input = createSectionSchema.parse(req.body);
-    const course = await prisma.course.findUnique({ where: { id: req.params.courseId } });
+    const courseId = firstParam(req.params.courseId);
+    if (!courseId) {
+      res.status(400).json({ message: "Invalid courseId" });
+      return;
+    }
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
     if (!course) {
       res.status(404).json({ message: "Course not found" });
       return;
@@ -149,7 +166,13 @@ coursesRouter.post(
   requireRole([UserRole.INSTRUCTOR, UserRole.ADMIN]),
   asyncHandler(async (req, res) => {
     const input = createLessonSchema.parse(req.body);
-    const course = await prisma.course.findUnique({ where: { id: req.params.courseId } });
+    const courseId = firstParam(req.params.courseId);
+    const sectionId = firstParam(req.params.sectionId);
+    if (!courseId || !sectionId) {
+      res.status(400).json({ message: "Invalid courseId or sectionId" });
+      return;
+    }
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
     if (!course) {
       res.status(404).json({ message: "Course not found" });
       return;
@@ -158,7 +181,7 @@ coursesRouter.post(
       res.status(403).json({ message: "You cannot modify this course" });
       return;
     }
-    const section = await prisma.section.findUnique({ where: { id: req.params.sectionId } });
+    const section = await prisma.section.findUnique({ where: { id: sectionId } });
     if (!section || section.courseId !== course.id) {
       res.status(404).json({ message: "Section not found for this course" });
       return;
@@ -184,8 +207,14 @@ coursesRouter.get(
   "/:courseId/learn",
   requireAuth,
   asyncHandler(async (req, res) => {
+    const courseId = firstParam(req.params.courseId);
+    if (!courseId) {
+      res.status(400).json({ message: "Invalid courseId" });
+      return;
+    }
+
     const course = await prisma.course.findUnique({
-      where: { id: req.params.courseId },
+      where: { id: courseId },
       include: {
         instructor: { select: { id: true, name: true } },
         sections: {

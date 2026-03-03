@@ -13,6 +13,12 @@ const progressSchema = z.object({
 
 export const progressRouter = Router();
 
+function firstParam(param: string | string[] | undefined): string | null {
+  if (typeof param === "string" && param.length > 0) return param;
+  if (Array.isArray(param) && param[0]) return param[0];
+  return null;
+}
+
 progressRouter.post(
   "/",
   requireAuth,
@@ -66,8 +72,14 @@ progressRouter.get(
   "/:courseId",
   requireAuth,
   asyncHandler(async (req, res) => {
+    const courseId = firstParam(req.params.courseId);
+    if (!courseId) {
+      res.status(400).json({ message: "Invalid courseId" });
+      return;
+    }
+
     const course = await prisma.course.findUnique({
-      where: { id: req.params.courseId },
+      where: { id: courseId },
       include: { sections: { include: { lessons: true } } },
     });
     if (!course) {
